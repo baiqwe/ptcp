@@ -1,10 +1,11 @@
-import { CATEGORIES, LOCALES, NICHE_DATA, CategoryKey } from "@/config/pseo-data";
 import { Metadata } from "next";
 import { notFound } from "next/navigation";
+import { CATEGORIES, CategoryKey, DICTIONARY, LOCALES, Locale, NICHE_DATA } from "@/config/pseo-data";
 import { HeroUploader } from "@/components/pseo/hero-uploader";
 import { ComparisonSlider } from "@/components/pseo/comparison-slider";
+import { DownloadButton } from "@/components/pseo/download-button";
+import { JsonLd } from "@/components/seo/json-ld";
 
-// Force static generation for all params
 export const dynamicParams = false;
 
 interface PageParams {
@@ -32,27 +33,34 @@ export async function generateStaticParams() {
 }
 
 export async function generateMetadata({ params }: { params: Promise<PageParams> }): Promise<Metadata> {
-    const { lang, category, niche } = await params;
+    const { lang, niche, category } = await params;
 
-    // Basic validation (optional since generateStaticParams restricts paths)
-    const categoryData = CATEGORIES[category as CategoryKey];
-    if (!categoryData) return {};
+    const dict = DICTIONARY[lang as Locale] || DICTIONARY.en;
+    const nicheInfo = NICHE_DATA[niche] || NICHE_DATA.default;
 
-    const nicheInfo = NICHE_DATA[niche as keyof typeof NICHE_DATA] || NICHE_DATA.default;
+    const title = dict.seo.titleTemplate.replace("{niche}", nicheInfo.title.replace("{niche}", niche));
+    const description = dict.seo.descTemplate
+        .replace("{niche}", nicheInfo.title.replace("{niche}", niche))
+        .replace("{useCase}", "art projects");
 
-    const title = nicheInfo.titleTemplate.replace("{niche}", niche);
-    const description = nicheInfo.metaTemplate.replace("{niche}", niche);
+    const baseUrl = process.env.BASE_URL ? `https://${process.env.BASE_URL}` : "https://site.com";
+
+    const languages: Record<string, string> = {};
+    LOCALES.forEach(locale => {
+        languages[locale] = `${baseUrl}/${locale}/tools/${category}/${niche}`;
+    });
 
     return {
-        title: `${title} | Photo to Coloring Page`,
-        description: description,
+        title,
+        description,
         alternates: {
-            languages: {
-                'en': `/en/tools/${category}/${niche}`,
-                'es': `/es/tools/${category}/${niche}`,
-                'de': `/de/tools/${category}/${niche}`,
-                'ja': `/ja/tools/${category}/${niche}`,
-            }
+            canonical: `${baseUrl}/${lang}/tools/${category}/${niche}`,
+            languages
+        },
+        openGraph: {
+            title,
+            description,
+            images: [`/og/tools/${niche}.png`]
         }
     };
 }
@@ -65,18 +73,28 @@ export default async function PseoPage({ params }: { params: Promise<PageParams>
         notFound();
     }
 
-    const nicheInfo = NICHE_DATA[niche as keyof typeof NICHE_DATA] || NICHE_DATA.default;
-    const title = nicheInfo.titleTemplate.replace("{niche}", niche);
+    const dict = DICTIONARY[lang as Locale] || DICTIONARY.en;
+    const nicheInfo = NICHE_DATA[niche] || NICHE_DATA.default;
+
+    const displayNicheTitle = nicheInfo.title === "Custom" ? niche : nicheInfo.title;
 
     return (
         <div className="container mx-auto px-4 py-12 space-y-16">
+            <JsonLd
+                niche={displayNicheTitle}
+                title={`${displayNicheTitle} Coloring Page Generator`}
+                description={nicheInfo.description}
+                faqs={nicheInfo.faqs}
+                imageUrl="/dog-sketch.png"
+            />
+
             {/* Hero Section */}
             <section className="text-center space-y-6 max-w-4xl mx-auto">
-                <h1 className="text-4xl font-bold tracking-tight sm:text-6xl text-balance">
-                    {title}
+                <h1 className="text-4xl font-bold tracking-tight sm:text-6xl text-balance capitalize">
+                    {displayNicheTitle} {dict.title.split(' ').slice(1).join(' ')}
                 </h1>
                 <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-                    {nicheInfo.metaTemplate.replace("{niche}", niche)}
+                    {nicheInfo.description}
                 </p>
 
                 <HeroUploader niche={niche} />
@@ -84,70 +102,52 @@ export default async function PseoPage({ params }: { params: Promise<PageParams>
 
             {/* Before/After Section */}
             <section className="grid grid-cols-1 md:grid-cols-2 gap-8 items-center bg-card rounded-3xl p-8 border shadow-sm">
-                <div className="space-y-4">
-                    <h2 className="text-3xl font-bold">See the Magic</h2>
-                    <p className="text-muted-foreground">
-                        Our AI analyzes your {niche} photo and extracts perfect lines for coloring.
-                        No complex settings, just upload and download.
-                    </p>
+                <div className="space-y-6 text-center md:text-left">
+                    <div className="space-y-4">
+                        <h2 className="text-3xl font-bold">{dict.features.instant}</h2>
+                        <p className="text-muted-foreground text-lg">
+                            See the magic happen. Drag the slider to compare original photo and the coloring page result.
+                        </p>
+                    </div>
+
+                    <DownloadButton
+                        imageUrl="/dog-sketch.png"
+                        filename={`coloring-page-${niche}-printable.png`}
+                        label={dict.download}
+                    />
                 </div>
                 <div className="w-full flex items-center justify-center relative">
                     <ComparisonSlider
                         beforeImage="/dog-photo.png"
                         afterImage="/dog-sketch.png"
+                        beforeLabel={dict.before}
+                        afterLabel={dict.after}
                     />
                 </div>
             </section>
 
-            {/* Gallery Section */}
-            <section>
-                <h2 className="text-3xl font-bold text-center mb-12">{niche} Coloring Page Examples</h2>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                    {[1, 2, 3, 4].map((i) => (
-                        <div key={i} className="aspect-square bg-muted rounded-lg flex items-center justify-center">
-                            Example {i}
-                        </div>
-                    ))}
-                </div>
-            </section>
-
-            {/* SEO Text Content */}
-            <section className="prose prose-lg dark:prose-invert mx-auto">
+            {/* Content & FAQ Section */}
+            <section className="prose prose-lg dark:prose-invert mx-auto max-w-3xl">
                 <h2>Why create a coloring page from your {niche}?</h2>
                 <p>
-                    Coloring is a relaxing activity for all ages. Converting a personal photo of your {niche} makes the experience even more special.
+                    Coloring is a relaxing activity for all ages. Converting a personal photo of your {displayNicheTitle} makes the experience even more special.
                     Whether it's for a gift, a family activity, or just for fun, our tool ensures high-quality outlines every time.
                 </p>
-                <h2>How to print your {niche} coloring page</h2>
-                <p>
-                    Once generated, you can download the image in high resolution. We recommend printing on cardstock for the best coloring experience with markers or pencils.
-                </p>
-            </section>
 
-            {/* Structured Data */}
-            <script
-                type="application/ld+json"
-                dangerouslySetInnerHTML={{
-                    __html: JSON.stringify({
-                        "@context": "https://schema.org",
-                        "@type": "SoftwareApplication",
-                        "name": title,
-                        "applicationCategory": "DesignApplication",
-                        "operatingSystem": "Web",
-                        "offers": {
-                            "@type": "Offer",
-                            "price": "0",
-                            "priceCurrency": "USD"
-                        },
-                        "aggregateRating": {
-                            "@type": "AggregateRating",
-                            "ratingValue": "4.8",
-                            "ratingCount": "1024"
-                        },
-                        "description": nicheInfo.metaTemplate.replace("{niche}", niche)
-                    })
-                }}
-            />
+                {nicheInfo.faqs && nicheInfo.faqs.length > 0 && (
+                    <div className="mt-8">
+                        <h2>Frequently Asked Questions</h2>
+                        <dl className="space-y-6">
+                            {nicheInfo.faqs.map((faq, i) => (
+                                <div key={i} className="border-b pb-4 last:border-0">
+                                    <dt className="font-bold text-lg mb-2">{faq.question}</dt>
+                                    <dd className="text-muted-foreground">{faq.answer}</dd>
+                                </div>
+                            ))}
+                        </dl>
+                    </div>
+                )}
+            </section>
         </div>
     );
 }

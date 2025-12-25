@@ -110,12 +110,7 @@ export function ComparisonSlider({
              Container: relative aspect-ratio
              Inner Images: absolute inset-0
            */}
-                    {/* To prevent squishing, we must set the width of this inner image 
-               to contain the FULL width of the parent, not just the clipped width.
-               Currently the parent 'div' has width: position%.
-               So the image inside needs width: (100 / position * 100) % ?
-               No.
-               
+                    {/* 
                Better technique:
                Use clip-path on the top layer.
            */}
