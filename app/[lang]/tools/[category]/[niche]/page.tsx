@@ -1,5 +1,6 @@
 import { Metadata } from "next";
 import { notFound } from "next/navigation";
+import Link from "next/link";
 import { CATEGORIES, CategoryKey, DICTIONARY, LOCALES, Locale, NICHE_DATA } from "@/config/pseo-data";
 import { HeroUploader } from "@/components/pseo/hero-uploader";
 import { ComparisonSlider } from "@/components/pseo/comparison-slider";
@@ -78,6 +79,9 @@ export default async function PseoPage({ params }: { params: Promise<PageParams>
 
     const displayNicheTitle = nicheInfo.title === "Custom" ? niche : nicheInfo.title;
 
+    // Get related niches (same category, different niche)
+    const relatedNiches = categoryData.niches.filter(n => n !== niche);
+
     return (
         <div className="container mx-auto px-4 py-12 space-y-16">
             <JsonLd
@@ -148,6 +152,24 @@ export default async function PseoPage({ params }: { params: Promise<PageParams>
                     </div>
                 )}
             </section>
+
+            {/* Related Converters */}
+            {relatedNiches.length > 0 && (
+                <section className="max-w-4xl mx-auto border-t pt-12">
+                    <h2 className="text-2xl font-bold text-center mb-8">Related {categoryData.title} Converters</h2>
+                    <div className="flex flex-wrap justify-center gap-4">
+                        {relatedNiches.map(relatedNiche => (
+                            <Link
+                                key={relatedNiche}
+                                href={`/${lang}/tools/${category}/${relatedNiche}`}
+                                className="px-6 py-3 rounded-full bg-muted hover:bg-muted/80 transition-colors capitalize text-sm font-medium"
+                            >
+                                {relatedNiche} Coloring Page
+                            </Link>
+                        ))}
+                    </div>
+                </section>
+            )}
         </div>
     );
 }
